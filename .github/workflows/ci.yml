@@ -38,6 +38,10 @@ jobs:
           curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
 
+      - name: Wait for database
+        run: |
+          timeout 30s bash -c 'until pg_isready -h localhost -p 5432 -U root; do sleep 1; done'
+
       - name: Run migrations
         run: |
           cd simplebank
