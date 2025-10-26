@@ -10,8 +10,6 @@ import (
 )
 
 func createRandomUser(t *testing.T) User {
-	user := createRandomUser()
-
 	arg := CreateUserParams{
 		Username:       util.RandomOwner(),
 		HashedPassword: "secret",
@@ -31,7 +29,7 @@ func createRandomUser(t *testing.T) User {
 	require.True(t, user.PasswordChangedAt.IsZero())
 	require.NotZero(t, user.CreatedAt)
 
-	return user
+	return user // ✅ fixed
 }
 
 func TestCreateUser(t *testing.T) {
