@@ -15,6 +15,14 @@ type createUserRequest struct {
 	FullName string `json:"full_name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 }
+type Usertoshow struct {
+	Username string `json:"username"`
+	//HashedPassword    string    `json:"hashed_password"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	//PasswordChangedAt time.Time `json:"password_changed_at"`
+	//CreatedAt         time.Time `json:"created_at"`
+}
 
 func (server *Server) createUser(ctx *gin.Context) {
 	var req createUserRequest
@@ -48,5 +56,10 @@ func (server *Server) createUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
-	ctx.JSON(http.StatusOK, user)
+	rsp := Usertoshow{
+		Username: user.Username,
+		FullName: user.FullName,
+		Email:    user.Email,
+	}
+	ctx.JSON(http.StatusOK, rsp)
 }
