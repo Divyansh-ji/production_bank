@@ -1,18 +1,30 @@
 package api
 
 import (
+	"fmt"
+
 	db "github.com/Divyansh-ji/production_bank/db/sqlc"
+	"github.com/Divyansh-ji/production_bank/token"
+	"github.com/Divyansh-ji/production_bank/util"
 	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
-	store  *db.Store
-	router *gin.Engine
+	store      *db.Store
+	tokenMaker token.Maker
+	router     *gin.Engine
 }
 
 // NewServer create a new HTTP server and setup routing
-func NewServer(store *db.Store) *Server {
-	server := &Server{store: store}
+func NewServer(config util.Config, store *db.Store) (*Server, error) {
+	tokenMaker, err := token.NewPasetoMaker(config.TokenSymmetricKey)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create token maker: %w", err)
+	}
+	server := &Server{
+		config:     config,
+		store:      store,
+		tokenMaker: tokenMaker}
 	router := gin.Default()
 
 	router.POST("/users", server.createUser)
