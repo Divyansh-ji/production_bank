@@ -26,18 +26,25 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 		config:     config,
 		store:      store,
 		tokenMaker: tokenMaker}
+
+	server.setupRouter()
+	return server, nil
+
+	return server, nil
+
+}
+func (server *Server) setupRouter() {
 	router := gin.Default()
-
 	router.POST("/users", server.createUser)
-	router.POST("/account", server.createAccount)
-	router.GET("/account/:id", server.getAccount)
-	router.GET("/accounts", server.listAccount)
-	router.GET("/accounts/all", server.listAllAccounts)
-	router.DELETE("/account/:id", server.deleteAccount)
-	router.POST("/transfer", server.createTransfer)
-	server.router = router
-	return server
+	router.POST("/user/login", server.loginUser)
+	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+	authRoutes.POST("/account", server.createAccount)
+	authRoutes.GET("/account/:id", server.getAccount)
+	authRoutes.GET("/accounts", server.listAllAccounts)
+	authRoutes.DELETE("/account/:id", server.deleteAccount)
 
+	authRoutes.POST("/transfer", server.createTransfer)
+	server.router = router
 }
 
 // start runs the HTTP server on a specific address

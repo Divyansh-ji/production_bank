@@ -1,8 +1,9 @@
 package api
 
 import (
-	"errors"
+	"database/sql"
 	"net/http"
+	"time"
 
 	db "github.com/Divyansh-ji/production_bank/db/sqlc"
 	"github.com/Divyansh-ji/production_bank/token"
@@ -17,13 +18,11 @@ type createUserRequest struct {
 	FullName string `json:"full_name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 }
+
 type UserResponse struct {
 	Username string `json:"username"`
-	//HashedPassword    string    `json:"hashed_password"`
 	FullName string `json:"full_name"`
 	Email    string `json:"email"`
-	//PasswordChangedAt time.Time `json:"password_changed_at"`
-	//CreatedAt         time.Time `json:"created_at"`
 }
 
 func newUserResponse(user db.User) UserResponse {
@@ -56,9 +55,10 @@ func (server *Server) createUser(ctx *gin.Context) {
 
 	user, err := server.store.CreateUser(ctx, arg)
 	if err != nil {
+		// Fix: Typo in Postgres error name
 		if pqErr, ok := err.(*pq.Error); ok {
 			switch pqErr.Code.Name() {
-			case "unique_voilation":
+			case "unique_violation": // ✅ correct spelling
 				ctx.JSON(http.StatusForbidden, errorResponse(err))
 				return
 			}
@@ -66,6 +66,7 @@ func (server *Server) createUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
+
 	rsp := newUserResponse(user)
 	ctx.JSON(http.StatusOK, rsp)
 }
@@ -74,6 +75,7 @@ type loginUserRequest struct {
 	Username string `json:"username" binding:"required,alphanum"`
 	Password string `json:"password" binding:"required,min=6"`
 }
+
 type loginUserResponse struct {
 	AccessToken string       `json:"access_token"`
 	User        UserResponse `json:"user"`
@@ -86,9 +88,9 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := server.store.GetUser(ctx, req.Username)
+    user, err := server.store.GetUsert(ctx, req.Username)
 	if err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
+		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
@@ -96,24 +98,25 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		return
 	}
 
-	err = util.CheckPassword(req.Password, user.HashedPassword)
-	if err != nil {
+	if err := util.CheckPassword(req.Password, user.HashedPassword); err != nil {
 		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
 	accessToken, _, err := server.tokenMaker.CreateToken(
 		user.Username,
-		server.config.AccessTokenDuration,
+		user.Role,
+		server.config.AccessTokenDuration.Sub(time.Now()),
 		token.TokenTypeAccessToken,
 	)
+
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
+
 	resp := loginUserResponse{
 		AccessToken: accessToken,
 		User:        newUserResponse(user),
 	}
-	ctx.JSON(200, resp)
-
+	ctx.JSON(http.StatusOK, resp)
 }
