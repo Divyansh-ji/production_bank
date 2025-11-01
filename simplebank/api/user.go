@@ -3,7 +3,6 @@ package api
 import (
 	"database/sql"
 	"net/http"
-	"time"
 
 	db "github.com/Divyansh-ji/production_bank/db/sqlc"
 	"github.com/Divyansh-ji/production_bank/token"
@@ -55,10 +54,9 @@ func (server *Server) createUser(ctx *gin.Context) {
 
 	user, err := server.store.CreateUser(ctx, arg)
 	if err != nil {
-		// Fix: Typo in Postgres error name
 		if pqErr, ok := err.(*pq.Error); ok {
 			switch pqErr.Code.Name() {
-			case "unique_violation": // ✅ correct spelling
+			case "unique_violation":
 				ctx.JSON(http.StatusForbidden, errorResponse(err))
 				return
 			}
@@ -70,6 +68,8 @@ func (server *Server) createUser(ctx *gin.Context) {
 	rsp := newUserResponse(user)
 	ctx.JSON(http.StatusOK, rsp)
 }
+
+// --------------------- LOGIN HANDLER ---------------------
 
 type loginUserRequest struct {
 	Username string `json:"username" binding:"required,alphanum"`
@@ -88,7 +88,7 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		return
 	}
 
-    user, err := server.store.GetUsert(ctx, req.Username)
+	user, err := server.store.GetUsert(ctx, req.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -102,13 +102,14 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
+
+	// Use duration directly (CreateToken expects a time.Duration)
 	accessToken, _, err := server.tokenMaker.CreateToken(
 		user.Username,
 		user.Role,
-		server.config.AccessTokenDuration.Sub(time.Now()),
+		server.config.AccessTokenDuration,
 		token.TokenTypeAccessToken,
 	)
-
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
