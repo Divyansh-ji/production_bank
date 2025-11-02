@@ -1,0 +1,8 @@
+version: '3.9' 
+services:
+  postgres:
+    images: some-postgres
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=simple_bank
