@@ -43,8 +43,10 @@ func (server *Server) setupRouter() {
 	authRoutes.GET("/accounts", server.listAllAccounts)
 	authRoutes.DELETE("/account/:id", server.deleteAccount)
 
+
 	authRoutes.POST("/transfer", server.createTransfer)
 	server.router = router
+	//make this good
 }
 
 // start runs the HTTP server on a specific address
