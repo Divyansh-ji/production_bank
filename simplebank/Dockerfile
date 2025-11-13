@@ -1,36 +1,48 @@
-# Build stage
-FROM golang:1.25 AS builder
+# ===== Build Stage =====
+FROM golang:1.25-alpine AS builder
 WORKDIR /THEPROJECT
+
+# Install dependencies (curl, tar, gzip, ca-certificates)
+RUN apk add --no-cache curl tar gzip ca-certificates
 
 # Copy source code
 COPY . .
 
-# Build Go binary for Linux
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main main.go
-RUN apk add curl 
+# Build Go binary (use platform defaults)
+RUN CGO_ENABLED=0 GOOS=linux go build -o main main.go
 
-# Download and extract migrate binary properly
-RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-amd64.tar.gz \
+# Download and extract migrate binary safely for the current arch
+ARG TARGETOS=linux
+ARG TARGETARCH
+RUN curl -fsSL https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.${TARGETOS}-${TARGETARCH}.tar.gz \
   -o migrate.tar.gz && \
-  tar -xvzf migrate.tar.gz && \
-  mv migrate.linux-amd64 migrate && \
-  rm migrate.tar.gz
+  tar -xzf migrate.tar.gz && \
+  if [ -f migrate.${TARGETOS}-${TARGETARCH} ]; then mv migrate.${TARGETOS}-${TARGETARCH} migrate; else mv migrate migrate; fi && \
+  rm -f migrate.tar.gz
 
-# Run stage
+
+# ===== Run Stage =====
 FROM alpine:latest
 WORKDIR /THEPROJECT
 
-# Copy the compiled binary and migrate tool
+# Install SSL certs and minimal shell tools
+RUN apk add --no-cache ca-certificates
+
+# Copy binaries from builder
 COPY --from=builder /THEPROJECT/main .
 COPY --from=builder /THEPROJECT/migrate ./migrate
 
-# Copy env and migration files
+# Copy environment and migration files
 COPY app.env .
 COPY db/migration ./migration
+COPY start.sh .
 
-# Expose API port
+# Give execution permission
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
+
+# Expose app port
 EXPOSE 8082
 
-# Command to start app
+# Entry point and default command
+ENTRYPOINT ["/THEPROJECT/start.sh"]
 CMD ["./main"]
-
